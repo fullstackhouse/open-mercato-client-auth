@@ -2,5 +2,11 @@
   "client_auth.errors.invalidPayload": "Nieprawidłowe dane",
   "client_auth.errors.providerNotConfigured": "Ten sposób logowania jest niedostępny.",
   "client_auth.errors.invalidToken": "Nieprawidłowy lub wygasły token.",
-  "client_auth.errors.signInFailed": "Logowanie nie powiodło się. Spróbuj ponownie."
+  "client_auth.errors.signInFailed": "Logowanie nie powiodło się. Spróbuj ponownie.",
+  "client_auth.errors.invalidCredentials": "Nieprawidłowy e-mail lub hasło.",
+  "client_auth.errors.sessionExpired": "Twoja sesja wygasła. Zaloguj się ponownie.",
+  "client_auth.errors.emailTaken": "Konto z tym adresem e-mail już istnieje.",
+  "client_auth.errors.signupDisabled": "Rejestracja jest niedostępna.",
+  "client_auth.errors.signupUnavailable": "Rejestracja jest tymczasowo niedostępna.",
+  "client_auth.errors.invalidResetToken": "Ten link do resetowania hasła jest nieprawidłowy lub wygasł."
 }

@@ -8,18 +8,29 @@ import type { FindOrCreateOauthUserResult } from '../verifiers/oauth/find-or-cre
  * ./core-auth.ts) — but the seam exists so a `customer_accounts`-backed
  * store can follow without touching the verifiers.
  *
- * The surface is intentionally minimal: only what the ported OAuth flow
- * needs today. Password login / signup (SPEC-055 Phase 2) will extend this
- * interface when those endpoints land — expected additions:
- *
- *   findByEmail(email: string): Promise<User | null>
- *   verifyPassword(email: string, password: string): Promise<User | null>
+ * v1 ships one implementation (core `auth` users). The password/signup
+ * endpoints (SPEC-055 §D) extend it with the credential + creation surface
+ * below; a future `customer_accounts` store implements the same interface.
  */
+export type CreateUserResult =
+  | { kind: 'ok'; user: User }
+  | { kind: 'error'; reason: 'email-taken' | 'no-tenant' }
+
 export interface UserStore {
   findOrCreateFromOauth(params: {
     identity: OauthIdentity
     tokens: OauthTokenResponse | null
   }): Promise<FindOrCreateOauthUserResult>
+
+  /** Resolves the verified user for an email/password pair, or null. */
+  verifyCredentials(email: string, password: string): Promise<User | null>
+
+  /**
+   * Creates a new client user with the base role. `email-taken` when an
+   * account already exists (signup does not enumerate via timing but does
+   * report the conflict to the caller).
+   */
+  createUser(params: { email: string; password: string; name?: string | null }): Promise<CreateUserResult>
 }
 
 export type { User, OauthIdentity, OauthTokenResponse, FindOrCreateOauthUserResult }

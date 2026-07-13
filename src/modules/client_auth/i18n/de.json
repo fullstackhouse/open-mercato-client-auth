@@ -2,5 +2,11 @@
   "client_auth.errors.invalidPayload": "Ungültige Daten",
   "client_auth.errors.providerNotConfigured": "Diese Anmeldemethode ist nicht verfügbar.",
   "client_auth.errors.invalidToken": "Ungültiges oder abgelaufenes Token.",
-  "client_auth.errors.signInFailed": "Anmeldung fehlgeschlagen. Bitte versuche es erneut."
+  "client_auth.errors.signInFailed": "Anmeldung fehlgeschlagen. Bitte versuche es erneut.",
+  "client_auth.errors.invalidCredentials": "E-Mail-Adresse oder Passwort ist falsch.",
+  "client_auth.errors.sessionExpired": "Deine Sitzung ist abgelaufen. Bitte melde dich erneut an.",
+  "client_auth.errors.emailTaken": "Mit dieser E-Mail-Adresse existiert bereits ein Konto.",
+  "client_auth.errors.signupDisabled": "Die Registrierung ist nicht verfügbar.",
+  "client_auth.errors.signupUnavailable": "Die Registrierung ist vorübergehend nicht verfügbar.",
+  "client_auth.errors.invalidResetToken": "Dieser Link zum Zurücksetzen des Passworts ist ungültig oder abgelaufen."
 }

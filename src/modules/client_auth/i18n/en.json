@@ -2,5 +2,11 @@
   "client_auth.errors.invalidPayload": "Invalid payload",
   "client_auth.errors.providerNotConfigured": "This sign-in provider is not available.",
   "client_auth.errors.invalidToken": "Invalid or expired token.",
-  "client_auth.errors.signInFailed": "Sign-in failed. Please try again."
+  "client_auth.errors.signInFailed": "Sign-in failed. Please try again.",
+  "client_auth.errors.invalidCredentials": "Incorrect email or password.",
+  "client_auth.errors.sessionExpired": "Your session has expired. Please sign in again.",
+  "client_auth.errors.emailTaken": "An account with this email already exists.",
+  "client_auth.errors.signupDisabled": "Sign-up is not available.",
+  "client_auth.errors.signupUnavailable": "Sign-up is temporarily unavailable.",
+  "client_auth.errors.invalidResetToken": "This password reset link is invalid or has expired."
 }
