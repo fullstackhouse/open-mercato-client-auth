@@ -46,6 +46,39 @@ export function getSessionDays(): number {
   return Number.isFinite(rawDays) && rawDays > 0 ? rawDays : DEFAULT_SESSION_DAYS
 }
 
+export const DEFAULT_PASSWORD_MIN_LENGTH = 8
+
+/**
+ * Minimum password length enforced by signup and password-reset confirm
+ * (CLIENT_AUTH_PASSWORD_MIN_LENGTH). Core auth hashes but has no length
+ * policy, so the package owns it. Defaults to 8.
+ */
+export function getPasswordMinLength(): number {
+  const raw = Number(process.env.CLIENT_AUTH_PASSWORD_MIN_LENGTH)
+  return Number.isInteger(raw) && raw > 0 ? raw : DEFAULT_PASSWORD_MIN_LENGTH
+}
+
+/**
+ * Whether the public signup endpoint accepts registrations
+ * (CLIENT_AUTH_SIGNUP_ENABLED). Enabled by default; set to `false`/`0` to
+ * make `POST /api/client_auth/signup` return 403 (invite-only deployments).
+ */
+export function isSignupEnabled(): boolean {
+  const raw = (process.env.CLIENT_AUTH_SIGNUP_ENABLED ?? '').trim().toLowerCase()
+  return raw !== 'false' && raw !== '0' && raw !== 'no'
+}
+
+/**
+ * Name of the role every newly created client user is granted
+ * (CLIENT_AUTH_DEFAULT_ROLE) — the base authenticated-user role in the host's
+ * RBAC vocabulary. Applies to both password signup and first-time OAuth users.
+ * Unset (the default) grants no role, preserving the pre-signup behavior.
+ */
+export function getDefaultRoleName(): string | null {
+  const raw = (process.env.CLIENT_AUTH_DEFAULT_ROLE ?? '').trim()
+  return raw || null
+}
+
 export async function getProviderConfig(provider: OauthProvider): Promise<OauthProviderConfig | null> {
   if (provider === 'google') {
     const clientId = process.env.GOOGLE_CLIENT_ID

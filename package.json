@@ -46,6 +46,7 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
+    "bcryptjs": "^3.0.3",
     "jose": "^6.0.0"
   },
   "peerDependencies": {

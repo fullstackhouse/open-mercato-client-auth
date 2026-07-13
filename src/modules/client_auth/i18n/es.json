@@ -2,5 +2,11 @@
   "client_auth.errors.invalidPayload": "Datos no válidos",
   "client_auth.errors.providerNotConfigured": "Este método de inicio de sesión no está disponible.",
   "client_auth.errors.invalidToken": "Token no válido o caducado.",
-  "client_auth.errors.signInFailed": "No se pudo iniciar sesión. Inténtalo de nuevo."
+  "client_auth.errors.signInFailed": "No se pudo iniciar sesión. Inténtalo de nuevo.",
+  "client_auth.errors.invalidCredentials": "Correo electrónico o contraseña incorrectos.",
+  "client_auth.errors.sessionExpired": "Tu sesión ha caducado. Inicia sesión de nuevo.",
+  "client_auth.errors.emailTaken": "Ya existe una cuenta con este correo electrónico.",
+  "client_auth.errors.signupDisabled": "El registro no está disponible.",
+  "client_auth.errors.signupUnavailable": "El registro no está disponible temporalmente.",
+  "client_auth.errors.invalidResetToken": "Este enlace para restablecer la contraseña no es válido o ha caducado."
 }

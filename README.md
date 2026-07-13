@@ -10,18 +10,16 @@ how they signed in.
 
 ## Status
 
-**v0.1 — OAuth port.** Google and Apple sign-in (web code+PKCE flow, native
-id-token flow, Apple ES256 client secret + `form_post` handling), the
+**v0.2 — JSON session endpoints.** The full SPEC-055 §D contract — `login`,
+`session` (whoami), `refresh`, `logout`, `signup`,
+`password-reset/{request,confirm}` — is implemented under `/api/client_auth/*`
+over core `AuthService`, alongside the v0.1 Google/Apple OAuth port, the
 `issueSession()` seam, cookie/body transports, and the core-auth user store.
 
-**Next (SPEC-055 endpoints):** the JSON session endpoint contract — `login`,
-`session` (whoami), `refresh`, `logout`, `signup`,
-`password-reset/{request,confirm}` — lands under `/api/client_auth/*` in the
-following release. Their directories exist as stubs under
-`src/modules/client_auth/api/`.
-
-An integration-test harness (ephemeral host app in CI) is planned but not yet
-part of this repo.
+**Next:** the `better-auth` verifier engine (feature-gated; drawn from real
+product need — OTP / passkeys / device flow) and an integration-test harness
+(ephemeral host app in CI) are planned but not yet part of this repo — unit
+tests cover the verifier/store/transport logic.
 
 ## Install
 
@@ -43,7 +41,30 @@ The package ships the compiled module tree at `dist/modules/client_auth/`,
 which is where the Open Mercato CLI resolves package-backed modules from.
 Then run `yarn generate` (or `mercato generate`) and apply migrations.
 
-## Endpoints (v0.1)
+## Endpoints
+
+### Session (email/password)
+
+| Endpoint | Purpose |
+|----------|---------|
+| `POST /api/client_auth/login` | `{ email, password }` → verifies credentials, issues a session. Responds `{ ok, token, refreshToken, expiresAt, user }` **and** sets cookies. |
+| `GET /api/client_auth/session` | Whoami. Reads the cookie or bearer token → `{ user, expiresAt }`; `401` when unauthenticated. |
+| `POST /api/client_auth/refresh` | `session_token` cookie or `{ refreshToken }` → a fresh access JWT (`{ ok, token, expiresAt, user }` + cookie), reusing the same refresh token. `401` (+ cleared cookies) when the refresh token is invalid/expired. |
+| `POST /api/client_auth/logout` | Revokes the session row (from the `session_token` cookie or `{ refreshToken }`) and clears cookies. |
+| `POST /api/client_auth/signup` | `{ email, password, name? }` → creates a confirmed user in the default tenant with the base role, then issues a session (`201`). `409` when the email is taken; `403` when signup is disabled. |
+| `POST /api/client_auth/password-reset/request` | `{ email, redirectTo? }` → **always** `{ ok: true }` (anti-enumeration). When the email exists, emits `client_auth.password_reset.requested` carrying the reset token so the host sends the email. |
+| `POST /api/client_auth/password-reset/confirm` | `{ token, newPassword }` → resets the password (core revokes all of the user's sessions). `400` on an invalid/expired token. |
+
+`expiresAt` is the **access-token** (8h) expiry — what clients use to schedule
+a preemptive refresh; the refresh token lives `REFRESH_TOKEN_DAYS` (30d).
+
+> **Password-reset email is the host's job.** The package creates the core
+> `PasswordReset` token and emits `client_auth.password_reset.requested`
+> (`{ userId, email, token, redirectTo, tenantId }`). Subscribe to it and send
+> the email via your notifications stack with a link to your frontend's
+> reset-password screen. The package intentionally owns no email templates.
+
+### OAuth (Google / Apple)
 
 | Endpoint | Purpose |
 |----------|---------|
@@ -58,12 +79,20 @@ Behavior:
 
 - If a user with the same (provider-verified) email already exists, the OAuth
   identity is linked to it; otherwise a new, already-confirmed user is created
-  in the default tenant with no roles and no organization. Unverified provider
-  emails are always refused.
+  in the default tenant with the base role (`CLIENT_AUTH_DEFAULT_ROLE`) and no
+  organization. Unverified provider emails are always refused.
 - Web flows finish with HttpOnly `auth_token` / `session_token` cookies;
   mobile flows get tokens back through the deep-link redirect
   (`OAUTH_MOBILE_REDIRECT_URI`) or the `token` endpoints' JSON body. Both
   transports are accepted by core `getAuthFromRequest` unchanged.
+
+### Transports
+
+- **Web (same-site):** HttpOnly `auth_token` (JWT) + `session_token` (refresh)
+  cookies, `SameSite=Lax`, `Secure` in production. JS never sees the JWT;
+  identity comes from the `session` (whoami) endpoint.
+- **Native / cross-site:** the response-body `token` / `refreshToken` (send
+  `Authorization: Bearer <token>`). Cookies are ignored.
 
 ## Configuration (env)
 
@@ -76,10 +105,18 @@ Behavior:
 | `OAUTH_MOBILE_REDIRECT_URI` | Deep link that mobile flows redirect back to. Defaults to `tourneeapp://auth/callback` (legacy default from the first consumer — set it explicitly in new apps). |
 | `OAUTH_WEB_REDIRECT_ORIGINS` | Comma-separated origins that web flows may redirect to after sign-in (for SPAs served from another origin). Absolute `redirect` URLs are honored only when their origin is listed; anything else falls back to same-app path-only redirects. Empty by default. |
 | `REFRESH_TOKEN_DAYS` | Session/refresh-token lifetime in days (default 30). |
+| `CLIENT_AUTH_SIGNUP_ENABLED` | Set to `false`/`0`/`no` to make `POST /signup` return `403` (invite-only deployments). Enabled by default. |
+| `CLIENT_AUTH_DEFAULT_ROLE` | Role granted to every new client user (password signup **and** first-time OAuth) — the base authenticated-user role in your RBAC vocabulary. Unset ⇒ no role is granted. A configured name that isn't found in the tenant is skipped (logged), never blocking account creation. |
+| `CLIENT_AUTH_PASSWORD_MIN_LENGTH` | Minimum password length for signup and reset-confirm (default 8). |
 | `JWT_SECRET` | Core auth secret; also HMAC-signs the stateless OAuth `state` payload. |
 
 A provider with missing credentials simply reports itself as unavailable —
 the module is safe to enable without any configuration.
+
+> **Rate limiting** is deliberately not implemented in the module — apply it at
+> the host edge (the mercato proxy / middleware) where the shared limiter and
+> IP context live. `login`, `signup`, and `password-reset/request` are the
+> endpoints to protect.
 
 ## Architecture
 
@@ -87,10 +124,11 @@ the module is safe to enable without any configuration.
 i18n). The reusable machinery lives above it and is exported from the package
 root so hosts can compose pieces without the module:
 
-- **`session/`** — `issueSession(em, user)` and the cookie transport helpers.
-- **`verifiers/`** — credential verification. `oauth/` today; password (over
-  core `AuthService`) next.
-- **`stores/`** — the user-store adapter seam.
+- **`session/`** — `issueSession(em, user)`, the access-token builder, the
+  cookie transport helpers, and `toUserView`.
+- **`verifiers/`** — credential verification: `password/` (over core
+  `AuthService`) and `oauth/`.
+- **`stores/`** — the user-store adapter seam + `createCoreUser`.
 - **`config.ts`** — all env-driven configuration.
 
 ### The verifier → `issueSession()` seam
@@ -101,11 +139,12 @@ Every sign-in method is a *credential verifier* that resolves a verified core
 ```ts
 import { issueSession, setSessionCookies } from '@fullstackhouse/open-mercato-client-auth'
 
-const session = await issueSession(em, verifiedUser) // { token, refreshToken, expiresAt }
+// { token, refreshToken, accessExpiresAt, refreshExpiresAt }
+const session = await issueSession(em, verifiedUser)
 setSessionCookies(res, session) // web transport; native clients read the body instead
 ```
 
-Google and Apple are the verifiers today. Future methods (password, OTP,
+Password, Google, and Apple are the verifiers today. Future methods (OTP,
 magic links, passkeys — potentially via the `better-auth` library mounted as
 a verification engine) plug in behind the same seam; nothing downstream
 changes when a verifier is added.
@@ -121,7 +160,8 @@ export interface UserStore {
     identity: OauthIdentity
     tokens: OauthTokenResponse | null
   }): Promise<FindOrCreateOauthUserResult>
-  // Phase 2 will add findByEmail / verifyPassword for password login+signup.
+  verifyCredentials(email: string, password: string): Promise<User | null>
+  createUser(params: { email: string; password: string; name?: string | null }): Promise<CreateUserResult>
 }
 ```
 
@@ -142,12 +182,14 @@ migrating from a hand-rolled `better_auth` app module (e.g. Tournee's
 SPEC-017 module) adopt their existing OAuth links with zero data migration —
 only the module id and endpoint prefix change (`better_auth` → `client_auth`).
 
-Note: module *registration* from an arbitrary package is a confirmed Open
-Mercato capability, but migration discovery from package-backed modules is
-still being verified against 0.6.x (this is the first fsh package module that
-ships entities + migrations). If your host's `db migrate` does not pick up
-the packaged migration, create the table via a host-side migration with the
-same SQL until that story is confirmed.
+Both module *registration* and *migration discovery* from an arbitrary package
+are first-class in the Open Mercato CLI (it resolves `from:` to
+`node_modules/<pkg>/dist/modules/<id>/migrations` and tracks each module in its
+own `mikro_orm_migrations_<moduleId>` table). **Swap caveat:** adopting this
+package in place of a hand-rolled `better_auth` module renames the module id
+(`better_auth` → `client_auth`), so migration tracking moves to a fresh
+`mikro_orm_migrations_client_auth` table — rename the old tracking table or
+ship idempotent migrations when migrating an existing app (SPEC-056 Phase 3).
 
 ## Development
 
