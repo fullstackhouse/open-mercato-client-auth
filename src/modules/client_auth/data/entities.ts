@@ -2,18 +2,19 @@ import { type Opt } from '@mikro-orm/core'
 import { Entity, Index, PrimaryKey, Property, Unique } from '@mikro-orm/decorators/legacy'
 
 /**
- * The table keeps its historical `better_auth_*` name so hosts migrating from
- * a hand-rolled better_auth app module (e.g. Tournee) adopt their existing
- * OAuth links without a data migration. Only the module id changed.
+ * OAuth provider links (Google / Apple) for a core `auth` user. One row per
+ * (provider, providerUserId). Hosts migrating from a hand-rolled `better_auth`
+ * app module rename their existing `better_auth_oauth_accounts` table to this
+ * name during adoption (a data-preserving `ALTER TABLE ... RENAME`).
  */
-@Entity({ tableName: 'better_auth_oauth_accounts' })
-@Unique({ name: 'better_auth_oauth_accounts_provider_subject_uq', properties: ['provider', 'providerUserId'] })
+@Entity({ tableName: 'client_auth_oauth_accounts' })
+@Unique({ name: 'client_auth_oauth_accounts_provider_subject_uq', properties: ['provider', 'providerUserId'] })
 export class OauthAccount {
   @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
   id!: string
 
   @Property({ name: 'user_id', type: 'uuid' })
-  @Index({ name: 'better_auth_oauth_accounts_user_idx' })
+  @Index({ name: 'client_auth_oauth_accounts_user_idx' })
   userId!: string
 
   @Property({ type: 'text' })

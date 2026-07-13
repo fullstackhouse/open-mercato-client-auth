@@ -1,6 +1,6 @@
 {
   "name": "@fullstackhouse/open-mercato-client-auth",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Client-facing authentication for Open Mercato applications: JSON session endpoints, Google/Apple OAuth, and pluggable credential verifiers over core auth",
   "type": "module",
   "main": "./dist/index.js",

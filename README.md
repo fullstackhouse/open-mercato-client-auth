@@ -172,24 +172,23 @@ follow without touching the verifiers.
 
 ## Data model & migration compatibility
 
-One table, `better_auth_oauth_accounts` — one row per linked provider
+One table, `client_auth_oauth_accounts` — one row per linked provider
 identity (`provider` + `provider_user_id` unique), linked to `core:auth.user`
 via a `defineLink` extension; core auth tables are never modified. Provider
 access/refresh tokens are stored **hashed** (SHA-256).
 
-The table deliberately keeps its historical `better_auth_*` name: hosts
-migrating from a hand-rolled `better_auth` app module (e.g. Tournee's
-SPEC-017 module) adopt their existing OAuth links with zero data migration —
-only the module id and endpoint prefix change (`better_auth` → `client_auth`).
-
 Both module *registration* and *migration discovery* from an arbitrary package
 are first-class in the Open Mercato CLI (it resolves `from:` to
 `node_modules/<pkg>/dist/modules/<id>/migrations` and tracks each module in its
-own `mikro_orm_migrations_<moduleId>` table). **Swap caveat:** adopting this
-package in place of a hand-rolled `better_auth` module renames the module id
-(`better_auth` → `client_auth`), so migration tracking moves to a fresh
-`mikro_orm_migrations_client_auth` table — rename the old tracking table or
-ship idempotent migrations when migrating an existing app (SPEC-056 Phase 3).
+own `mikro_orm_migrations_<moduleId>` table).
+
+**Migrating from a hand-rolled `better_auth` module** (e.g. Tournee's SPEC-017
+module): before the `client_auth` migration runs, rename the existing objects
+so the data survives and the migration is recognised as already applied —
+`ALTER TABLE better_auth_oauth_accounts RENAME TO client_auth_oauth_accounts`
+(plus its constraint/index names) and
+`ALTER TABLE mikro_orm_migrations_better_auth RENAME TO mikro_orm_migrations_client_auth`.
+Fresh databases need nothing — the migration creates the table directly.
 
 ## Development
 
