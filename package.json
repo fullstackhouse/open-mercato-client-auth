@@ -1,0 +1,100 @@
+{
+  "name": "@fullstackhouse/open-mercato-client-auth",
+  "version": "0.1.0",
+  "description": "Client-facing authentication for Open Mercato applications: JSON session endpoints, Google/Apple OAuth, and pluggable credential verifiers over core auth",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./dist/index.js"
+    },
+    "./modules/client_auth/*": {
+      "types": "./src/modules/client_auth/*.ts",
+      "default": "./dist/modules/client_auth/*.js"
+    },
+    "./session/*": {
+      "types": "./src/session/*.ts",
+      "default": "./dist/session/*.js"
+    },
+    "./stores/*": {
+      "types": "./src/stores/*.ts",
+      "default": "./dist/stores/*.js"
+    },
+    "./verifiers/*": {
+      "types": "./src/verifiers/*.ts",
+      "default": "./dist/verifiers/*.js"
+    },
+    "./config": {
+      "types": "./src/config.ts",
+      "default": "./dist/config.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "jose": "^6.0.0"
+  },
+  "peerDependencies": {
+    "@mikro-orm/core": ">=7.0.0",
+    "@mikro-orm/decorators": ">=7.0.0",
+    "@mikro-orm/migrations": ">=7.0.0",
+    "@mikro-orm/postgresql": ">=7.0.0",
+    "@open-mercato/core": ">=0.6.0",
+    "@open-mercato/shared": ">=0.6.0",
+    "next": ">=15.0.0",
+    "zod": ">=3.25.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.0.0",
+    "@mikro-orm/core": "^7.1.4",
+    "@mikro-orm/decorators": "^7.1.4",
+    "@mikro-orm/migrations": "^7.1.4",
+    "@mikro-orm/postgresql": "^7.1.4",
+    "@open-mercato/core": "0.6.5",
+    "@open-mercato/events": "^0.6.5",
+    "@open-mercato/search": "^0.6.5",
+    "@open-mercato/shared": "0.6.5",
+    "@types/node": "^24.0.0",
+    "@types/pg": "^8.20.0",
+    "@types/sanitize-html": "^2.16.1",
+    "awilix": "^13.0.5",
+    "bcryptjs": "^3.0.3",
+    "bullmq": "^5.80.2",
+    "eslint": "^9.0.0",
+    "ioredis": "^5.11.1",
+    "next": "16.1.7",
+    "tsup": "^8.0.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.0.0",
+    "vitest": "^2.0.0",
+    "zod": "^4.4.3"
+  },
+  "keywords": [
+    "open-mercato",
+    "auth",
+    "oauth",
+    "session",
+    "google",
+    "apple"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fullstackhouse/open-mercato-client-auth.git"
+  },
+  "author": "Full Stack House",
+  "license": "MIT"
+}

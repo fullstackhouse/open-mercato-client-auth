@@ -1,0 +1,6 @@
+{
+  "client_auth.errors.invalidPayload": "Datos no válidos",
+  "client_auth.errors.providerNotConfigured": "Este método de inicio de sesión no está disponible.",
+  "client_auth.errors.invalidToken": "Token no válido o caducado.",
+  "client_auth.errors.signInFailed": "No se pudo iniciar sesión. Inténtalo de nuevo."
+}

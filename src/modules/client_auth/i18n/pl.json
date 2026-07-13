@@ -1,0 +1,6 @@
+{
+  "client_auth.errors.invalidPayload": "Nieprawidłowe dane",
+  "client_auth.errors.providerNotConfigured": "Ten sposób logowania jest niedostępny.",
+  "client_auth.errors.invalidToken": "Nieprawidłowy lub wygasły token.",
+  "client_auth.errors.signInFailed": "Logowanie nie powiodło się. Spróbuj ponownie."
+}
