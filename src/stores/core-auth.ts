@@ -13,7 +13,7 @@ import type { CreateUserResult, UserStore, User } from './types.js'
 /**
  * The v1 user store: client users are core `auth` users ("customer" is a
  * role with zero backend features, not a separate table). OAuth identities
- * link to users via the `better_auth_oauth_accounts` extension table; core
+ * link to users via the `client_auth_oauth_accounts` extension table; core
  * auth tables are never modified.
  */
 export class CoreAuthUserStore implements UserStore {

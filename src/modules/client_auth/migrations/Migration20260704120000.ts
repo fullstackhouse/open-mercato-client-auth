@@ -3,7 +3,7 @@ import { Migration } from '@mikro-orm/migrations'
 export class Migration20260704120000 extends Migration {
   override async up(): Promise<void> {
     this.addSql(
-      `create table "better_auth_oauth_accounts" (
+      `create table "client_auth_oauth_accounts" (
         "id" uuid not null default gen_random_uuid(),
         "user_id" uuid not null,
         "provider" text not null,
@@ -15,18 +15,18 @@ export class Migration20260704120000 extends Migration {
         "created_at" timestamptz not null,
         "updated_at" timestamptz not null,
         "deleted_at" timestamptz null,
-        constraint "better_auth_oauth_accounts_pkey" primary key ("id")
+        constraint "client_auth_oauth_accounts_pkey" primary key ("id")
       );`,
     )
     this.addSql(
-      `alter table "better_auth_oauth_accounts" add constraint "better_auth_oauth_accounts_provider_subject_uq" unique ("provider", "provider_user_id");`,
+      `alter table "client_auth_oauth_accounts" add constraint "client_auth_oauth_accounts_provider_subject_uq" unique ("provider", "provider_user_id");`,
     )
     this.addSql(
-      `create index "better_auth_oauth_accounts_user_idx" on "better_auth_oauth_accounts" ("user_id");`,
+      `create index "client_auth_oauth_accounts_user_idx" on "client_auth_oauth_accounts" ("user_id");`,
     )
   }
 
   override async down(): Promise<void> {
-    this.addSql(`drop table if exists "better_auth_oauth_accounts" cascade;`)
+    this.addSql(`drop table if exists "client_auth_oauth_accounts" cascade;`)
   }
 }
