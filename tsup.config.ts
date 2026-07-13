@@ -16,4 +16,7 @@ export default defineConfig({
   dts: false,
   sourcemap: true,
   clean: true,
+  // tsup only emits the transpiled .ts tree; module assets (i18n JSON) must be
+  // copied verbatim so the CLI can import them from the published dist/.
+  onSuccess: 'node scripts/copy-assets.mjs',
 })
