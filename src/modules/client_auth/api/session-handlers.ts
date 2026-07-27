@@ -113,20 +113,29 @@ export async function handleRefresh(req: Request): Promise<Response> {
   const refreshToken =
     (parsed.success ? parsed.data.refreshToken : undefined) ?? readRequestCookie(req, SESSION_TOKEN_COOKIE_NAME)
 
-  const unauthorized = () => {
+  // `clearCookies` is deliberately NOT set when the caller presented no refresh
+  // token: there is no session to invalidate, so clearing is both pointless and
+  // destructive. The response can land AFTER a login that happened while this
+  // request was in flight, and `Set-Cookie: auth_token=; Max-Age=0` would then
+  // wipe a valid, newer session. Clients probe this endpoint speculatively on
+  // page load to restore a session whose short-lived access token expired, so
+  // the anonymous case is the common one, and it races every fast login. Only
+  // clear when a token WAS presented and proved invalid — there the stale
+  // cookies genuinely should go.
+  const unauthorized = (clearCookies: boolean) => {
     const res = NextResponse.json(
       { error: translate('client_auth.errors.sessionExpired', 'Your session has expired. Please sign in again.') },
       { status: 401 },
     )
-    clearSessionCookies(res)
+    if (clearCookies) clearSessionCookies(res)
     return res
   }
 
-  if (!refreshToken) return unauthorized()
+  if (!refreshToken) return unauthorized(false)
 
   const em = await resolveEm()
   const result = await new AuthService(em).refreshFromSessionToken(refreshToken)
-  if (!result) return unauthorized()
+  if (!result) return unauthorized(true)
 
   const token = buildAccessToken(result.user, String(result.session.id), result.roles)
   const res = NextResponse.json({
