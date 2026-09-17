@@ -57,12 +57,13 @@ export async function handleOauthInit(provider: OauthProvider, req: Request): Pr
   if (!config) return providerNotConfigured(translate)
 
   const { platform, redirect } = parsed.data
+  const baseUrl = getAppBaseUrl(req)
   // Refuse here rather than at the callback: a redirect the allowlist does not
   // admit is silently replaced by a path on this app, so the caller would be
   // sent to the provider, signed in, and dropped on a host that serves them
   // nothing — with no error anywhere to explain it.
-  if (platform === 'web' && isRefusedWebRedirect(redirect)) return untrustedRedirect(translate)
-  const sanitizedRedirect = platform === 'web' ? resolveWebRedirect(redirect, getAppBaseUrl(req)) : null
+  if (platform === 'web' && isRefusedWebRedirect(redirect, baseUrl)) return untrustedRedirect(translate)
+  const sanitizedRedirect = platform === 'web' ? resolveWebRedirect(redirect, baseUrl) : null
 
   const pkce = generatePkcePair()
   const state = encodeOauthState({

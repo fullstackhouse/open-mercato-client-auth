@@ -37,15 +37,23 @@ export function isAllowedWebRedirectOrigin(origin: string): boolean {
 }
 
 /**
- * True when the caller asked to be redirected to an absolute URL that the
- * allowlist does not admit. Callers use this to refuse the flow up front
- * rather than send the user to the provider and silently redirect them
- * somewhere else on the way back.
+ * True when the caller asked to be redirected to an absolute URL that neither
+ * the allowlist admits nor this app serves. Callers use this to refuse the
+ * flow up front rather than send the user to the provider and silently
+ * redirect them somewhere else on the way back.
+ *
+ * A URL on this app's own origin is not the caller naming somewhere else, so
+ * it is never refused: `resolveWebRedirect` keeps it as a same-app path, which
+ * is what it did before any of this consulted an allowlist. `baseUrl` is
+ * required for that reason — a caller that forgot it would start refusing
+ * clients served from the app's own host.
  */
-export function isRefusedWebRedirect(redirect: string | null | undefined): boolean {
+export function isRefusedWebRedirect(redirect: string | null | undefined, baseUrl: string): boolean {
   if (!redirect) return false
   const absolute = parseAbsoluteUrl(redirect)
-  return absolute !== null && !isAllowedWebRedirectOrigin(absolute.origin)
+  if (!absolute) return false
+  if (isAllowedWebRedirectOrigin(absolute.origin)) return false
+  return absolute.origin !== parseAbsoluteUrl(baseUrl)?.origin
 }
 
 /**

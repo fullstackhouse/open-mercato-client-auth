@@ -75,15 +75,21 @@ describe('isRefusedWebRedirect', () => {
 
   test('refuses an absolute URL the allowlist does not admit', () => {
     process.env.OAUTH_WEB_REDIRECT_ORIGINS = 'https://app.example.com'
-    expect(isRefusedWebRedirect('https://evil.example.com/phish')).toBe(true)
-    expect(isRefusedWebRedirect('https://app.example.com/welcome')).toBe(false)
+    expect(isRefusedWebRedirect('https://evil.example.com/phish', BASE_URL)).toBe(true)
+    expect(isRefusedWebRedirect('https://app.example.com/welcome', BASE_URL)).toBe(false)
+  })
+
+  test('never refuses a URL this app itself serves', () => {
+    delete process.env.OAUTH_WEB_REDIRECT_ORIGINS
+    expect(isRefusedWebRedirect(`${BASE_URL}/backend`, BASE_URL)).toBe(false)
+    expect(resolveWebRedirect(`${BASE_URL}/backend`, BASE_URL)).toBe('/backend')
   })
 
   test('leaves same-app redirects to path sanitization', () => {
     process.env.OAUTH_WEB_REDIRECT_ORIGINS = 'https://app.example.com'
-    expect(isRefusedWebRedirect('/dashboard')).toBe(false)
-    expect(isRefusedWebRedirect('//evil.example.com/x')).toBe(false)
-    expect(isRefusedWebRedirect(undefined)).toBe(false)
-    expect(isRefusedWebRedirect(null)).toBe(false)
+    expect(isRefusedWebRedirect('/dashboard', BASE_URL)).toBe(false)
+    expect(isRefusedWebRedirect('//evil.example.com/x', BASE_URL)).toBe(false)
+    expect(isRefusedWebRedirect(undefined, BASE_URL)).toBe(false)
+    expect(isRefusedWebRedirect(null, BASE_URL)).toBe(false)
   })
 })
