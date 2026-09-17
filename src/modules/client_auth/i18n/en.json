@@ -1,6 +1,7 @@
 {
   "client_auth.errors.invalidPayload": "Invalid payload",
   "client_auth.errors.providerNotConfigured": "This sign-in provider is not available.",
+  "client_auth.errors.untrustedRedirect": "This sign-in cannot return to that address.",
   "client_auth.errors.invalidToken": "Invalid or expired token.",
   "client_auth.errors.signInFailed": "Sign-in failed. Please try again.",
   "client_auth.errors.invalidCredentials": "Incorrect email or password.",

@@ -1,6 +1,7 @@
 {
   "client_auth.errors.invalidPayload": "Ungültige Daten",
   "client_auth.errors.providerNotConfigured": "Diese Anmeldemethode ist nicht verfügbar.",
+  "client_auth.errors.untrustedRedirect": "Die Anmeldung kann nicht zu dieser Adresse zurückkehren.",
   "client_auth.errors.invalidToken": "Ungültiges oder abgelaufenes Token.",
   "client_auth.errors.signInFailed": "Anmeldung fehlgeschlagen. Bitte versuche es erneut.",
   "client_auth.errors.invalidCredentials": "E-Mail-Adresse oder Passwort ist falsch.",

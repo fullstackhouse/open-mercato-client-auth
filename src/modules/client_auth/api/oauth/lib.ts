@@ -17,7 +17,7 @@ import {
   verifyIdToken,
   type OauthIdentity,
 } from '../../../../verifiers/oauth/providers.js'
-import { resolveWebRedirect } from '../../../../verifiers/oauth/redirect.js'
+import { isRefusedWebRedirect, resolveWebRedirect } from '../../../../verifiers/oauth/redirect.js'
 import { oauthInitSchema, oauthTokenSchema } from '../../data/validators.js'
 
 export const STATE_COOKIE_NAME = 'client_auth_oauth_state'
@@ -31,6 +31,13 @@ function callbackUri(req: Request, provider: OauthProvider): string {
 function providerNotConfigured(translate: Translate): NextResponse {
   return NextResponse.json(
     { error: translate('client_auth.errors.providerNotConfigured', 'This sign-in provider is not available.') },
+    { status: 400 },
+  )
+}
+
+function untrustedRedirect(translate: Translate): NextResponse {
+  return NextResponse.json(
+    { error: translate('client_auth.errors.untrustedRedirect', 'This sign-in cannot return to that address.') },
     { status: 400 },
   )
 }
@@ -50,6 +57,11 @@ export async function handleOauthInit(provider: OauthProvider, req: Request): Pr
   if (!config) return providerNotConfigured(translate)
 
   const { platform, redirect } = parsed.data
+  // Refuse here rather than at the callback: a redirect the allowlist does not
+  // admit is silently replaced by a path on this app, so the caller would be
+  // sent to the provider, signed in, and dropped on a host that serves them
+  // nothing — with no error anywhere to explain it.
+  if (platform === 'web' && isRefusedWebRedirect(redirect)) return untrustedRedirect(translate)
   const sanitizedRedirect = platform === 'web' ? resolveWebRedirect(redirect, getAppBaseUrl(req)) : null
 
   const pkce = generatePkcePair()
