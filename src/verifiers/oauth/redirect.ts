@@ -10,6 +10,52 @@ function parseAbsoluteUrl(value: string): URL | null {
   }
 }
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/**
+ * An allowlist entry may carry `*`, which stands for a run of characters
+ * containing no dot and no slash — one host label in `https://*.example.com`,
+ * or part of one in `https://*-pr-*.example.com`. So `https://*.example.com`
+ * admits `https://tenant.example.com` and refuses
+ * `https://tenant.evil.example.com`. Deployments that serve one app per tenant
+ * subdomain would otherwise have to name every tenant, which they cannot —
+ * tenants come and go without a redeploy.
+ *
+ * A pattern is matched against `URL.origin`, so it never spans a path, and the
+ * caller has already rejected anything that is not http(s).
+ */
+function originMatchesEntry(origin: string, entry: string): boolean {
+  if (!entry.includes('*')) return entry === origin
+  const pattern = entry.split('*').map(escapeRegExp).join('[^./]+')
+  return new RegExp(`^${pattern}$`).test(origin)
+}
+
+export function isAllowedWebRedirectOrigin(origin: string): boolean {
+  return getWebRedirectOrigins().some((entry) => originMatchesEntry(origin, entry))
+}
+
+/**
+ * True when the caller asked to be redirected to an absolute URL that neither
+ * the allowlist admits nor this app serves. Callers use this to refuse the
+ * flow up front rather than send the user to the provider and silently
+ * redirect them somewhere else on the way back.
+ *
+ * A URL on this app's own origin is not the caller naming somewhere else, so
+ * it is never refused: `resolveWebRedirect` keeps it as a same-app path, which
+ * is what it did before any of this consulted an allowlist. `baseUrl` is
+ * required for that reason — a caller that forgot it would start refusing
+ * clients served from the app's own host.
+ */
+export function isRefusedWebRedirect(redirect: string | null | undefined, baseUrl: string): boolean {
+  if (!redirect) return false
+  const absolute = parseAbsoluteUrl(redirect)
+  if (!absolute) return false
+  if (isAllowedWebRedirectOrigin(absolute.origin)) return false
+  return absolute.origin !== parseAbsoluteUrl(baseUrl)?.origin
+}
+
 /**
  * Resolves the post-sign-in redirect for web OAuth flows. Absolute URLs are
  * honored only when their origin is in the OAUTH_WEB_REDIRECT_ORIGINS
@@ -19,7 +65,7 @@ function parseAbsoluteUrl(value: string): URL | null {
 export function resolveWebRedirect(redirect: string | null | undefined, baseUrl: string): string {
   if (redirect) {
     const absolute = parseAbsoluteUrl(redirect)
-    if (absolute && getWebRedirectOrigins().includes(absolute.origin)) {
+    if (absolute && isAllowedWebRedirectOrigin(absolute.origin)) {
       return absolute.toString()
     }
   }
