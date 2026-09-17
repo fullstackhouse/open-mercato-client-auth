@@ -15,11 +15,16 @@ function escapeRegExp(value: string): string {
 }
 
 /**
- * An allowlist entry may carry a single `*`, which stands for exactly one
- * host label: `https://*.example.com` admits `https://tenant.example.com` and
- * refuses `https://tenant.evil.example.com`. Deployments that serve one app
- * per tenant subdomain would otherwise have to name every tenant, which they
- * cannot — tenants come and go without a redeploy.
+ * An allowlist entry may carry `*`, which stands for a run of characters
+ * containing no dot and no slash — one host label in `https://*.example.com`,
+ * or part of one in `https://*-pr-*.example.com`. So `https://*.example.com`
+ * admits `https://tenant.example.com` and refuses
+ * `https://tenant.evil.example.com`. Deployments that serve one app per tenant
+ * subdomain would otherwise have to name every tenant, which they cannot —
+ * tenants come and go without a redeploy.
+ *
+ * A pattern is matched against `URL.origin`, so it never spans a path, and the
+ * caller has already rejected anything that is not http(s).
  */
 function originMatchesEntry(origin: string, entry: string): boolean {
   if (!entry.includes('*')) return entry === origin

@@ -50,6 +50,14 @@ describe('resolveWebRedirect', () => {
     expect(resolveWebRedirect('https://app.example.com.evil.com/welcome', BASE_URL)).toBe('/')
   })
 
+  test('several wildcards in one entry each stand for their own run', () => {
+    process.env.OAUTH_WEB_REDIRECT_ORIGINS = 'https://*-pr-*.app.example.com'
+    expect(resolveWebRedirect('https://tenant-pr-12.app.example.com/welcome', BASE_URL)).toBe(
+      'https://tenant-pr-12.app.example.com/welcome',
+    )
+    expect(resolveWebRedirect('https://tenant-pr-12.deeper.app.example.com/welcome', BASE_URL)).toBe('/')
+  })
+
   test('a wildcard entry does not admit another scheme or port', () => {
     process.env.OAUTH_WEB_REDIRECT_ORIGINS = 'https://*.app.example.com'
     expect(resolveWebRedirect('http://tenant.app.example.com/welcome', BASE_URL)).toBe('/')
