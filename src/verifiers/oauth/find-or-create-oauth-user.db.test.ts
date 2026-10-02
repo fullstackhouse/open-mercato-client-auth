@@ -17,6 +17,7 @@
 //   npm run test:db     # testcontainers; or set CLIENT_AUTH_TEST_PG_URL
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { MikroORM, type EntityManager } from '@mikro-orm/postgresql'
+import { Client } from 'pg'
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql'
 import { createSuiteDatabase, dropSuiteDatabase } from '../../__db__/suite-database.js'
 import { Role, User, UserRole } from '@open-mercato/core/modules/auth/data/entities'
@@ -189,15 +190,13 @@ describe('first-time OAuth sign-in against a real database', () => {
   })
 
   // Two callbacks for the same brand-new identity, overlapping — a double-clicked consent screen,
-  // or a provider retry. What is asserted is the end state, which is the invariant that matters:
-  // one person, one account, and only one of the two callers told the application a user was born.
+  // a provider retry, a client firing the exchange twice. One person, one account, one signup
+  // event, and (the part that was broken) one user.
   //
-  // Deliberately NOT asserted: that the unique index rejected the loser. Whether these two
-  // overlap at the critical moment is up to the scheduler — in practice the first flush usually
-  // lands before the second read, and then the second caller legitimately returns the existing
-  // account. The index itself is pinned deterministically in migration.db.test.ts; this test is
-  // here for the invariant, not for the mechanism that enforces it.
-  it('leaves one user and one account when two callbacks for the same identity overlap', async () => {
+  // Honest about what it does not do: whether these two interleave at the critical moment is up to
+  // the scheduler, so this asserts the end state rather than forcing the race. The test below
+  // forces it.
+  it('leaves one user and one account when two callbacks overlap', async () => {
     await freshWorld()
 
     const outcomes = await Promise.allSettled([
@@ -208,12 +207,50 @@ describe('first-time OAuth sign-in against a real database', () => {
     const em = orm.em.fork()
     expect(await em.count(OauthAccount, {})).toBe(1)
     expect(await em.count(User, {})).toBe(1)
-
     const signups = outcomes.filter(
       (outcome) => outcome.status === 'fulfilled' && (outcome.value as { isNewUser?: boolean }).isNewUser === true,
     )
     expect(signups).toHaveLength(1)
-    // And the signup event fires once, so a welcome mail is not sent twice.
     expect(mockEmit.mock.calls.filter(([event]) => event === 'client_auth.user.signed_up')).toHaveLength(1)
   })
+
+  // The deterministic half, and the one that pins the fix.
+  //
+  // Measured before that fix: 24 of 25 concurrent first sign-ins created a DUPLICATE USER. The
+  // account table's unique index was never the problem — core's `users` has no unique constraint
+  // on email, so both callbacks happily create one, and from then on `findUsersByEmail` returns two
+  // rows and this function answers `email-ambiguous` for that person forever. The fix serialises
+  // per identity with `pg_advisory_xact_lock`, and the way to prove a lock is taken is to hold it
+  // first and watch the caller wait.
+  //
+  // The 250 ms below is not a wait for something to become true (which the handbook forbids) — it
+  // is the measurement itself: the claim is that the call is STILL not finished after that long,
+  // and the release-then-await that follows is what proves it was only waiting.
+  it('waits for a callback already working on the same identity, rather than racing it', async () => {
+    await freshWorld()
+    const key = `client_auth:oauth:${IDENTITY.provider}:${IDENTITY.providerUserId}`
+
+    const blocker = new Client({ connectionString: suiteUrl })
+    await blocker.connect()
+    await blocker.query('begin')
+    await blocker.query('select pg_advisory_xact_lock(hashtext($1))', [key])
+
+    try {
+      const pending = findOrCreateOauthUser({ em: orm.em.fork(), identity: IDENTITY, tokens: null })
+      const settledFirst = await Promise.race([
+        pending.then(() => 'finished' as const),
+        new Promise<'still waiting'>((resolve) => setTimeout(() => resolve('still waiting'), 250)),
+      ])
+
+      expect(settledFirst).toBe('still waiting')
+      // Nothing written while it waits: the lock is taken before the first read, not after.
+      expect(await orm.em.fork().count(User, {})).toBe(0)
+
+      await blocker.query('rollback')
+      await expect(pending).resolves.toMatchObject({ kind: 'ok', isNewUser: true })
+      expect(await orm.em.fork().count(User, {})).toBe(1)
+    } finally {
+      await blocker.end().catch(() => {})
+    }
+  }, 60_000)
 })
