@@ -41,6 +41,12 @@ beforeAll(async () => {
     discovery: { warnWhenNoEntities: false },
     logger: () => {},
   })
+  // Clean state BEFORE, not only after (12.7). This suite asserts what applying the migration to an
+  // *empty* database does, so it must not inherit one: the store suite in this same project builds
+  // its schema from entity metadata, a developer may point CLIENT_AUTH_TEST_PG_URL at a server they
+  // keep, and a crashed previous run leaves its tables behind. Without this the suite fails with
+  // `relation "client_auth_oauth_accounts" already exists`, which says nothing about the migration.
+  await orm.schema.drop({ dropMigrationsTable: true })
   await orm.migrator.up()
 }, 120_000)
 
