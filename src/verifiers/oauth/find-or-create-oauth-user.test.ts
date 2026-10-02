@@ -28,6 +28,7 @@ type FindOneHandler = (where: Record<string, unknown>) => unknown
 
 function createMockEm(handlers: Map<unknown, FindOneHandler>) {
   const created: Array<{ entity: unknown; data: Record<string, unknown> }> = []
+  const locks: Array<{ sql: string; params: unknown[] }> = []
   const em = {
     findOne: vi.fn(async (entity: unknown, where: Record<string, unknown>) => {
       const handler = handlers.get(entity)
@@ -39,8 +40,19 @@ function createMockEm(handlers: Map<unknown, FindOneHandler>) {
       return record
     }),
     flush: vi.fn(async () => undefined),
+    // `findOrCreateOauthUser` serialises per identity: it opens a transaction and takes an advisory
+    // lock before reading, so one concurrent callback cannot duplicate the core user another is
+    // creating. This fake runs the body inline and records the lock key — the lock's actual
+    // blocking is a database behaviour and is asserted in find-or-create-oauth-user.db.test.ts.
+    transactional: vi.fn(async (cb: (tem: unknown) => Promise<unknown>) => cb(em)),
+    getConnection: vi.fn(() => ({
+      execute: vi.fn(async (sql: string, params: unknown[]) => {
+        locks.push({ sql, params })
+        return []
+      }),
+    })),
   }
-  return { em: em as unknown as EntityManager, created, raw: em }
+  return { em: em as unknown as EntityManager, created, locks, raw: em }
 }
 
 const identity: OauthIdentity = {
@@ -109,7 +121,7 @@ describe('findOrCreateOauthUser', () => {
 
   test('creates a confirmed user in the default tenant when no account matches', async () => {
     mockFindUsersByEmail.mockResolvedValue([])
-    const { em, created } = createMockEm(
+    const { em, created, locks } = createMockEm(
       new Map<unknown, FindOneHandler>([
         [OauthAccount, () => null],
         [Tenant, () => ({ id: 'tenant-default' })],
@@ -131,6 +143,15 @@ describe('findOrCreateOauthUser', () => {
       isConfirmed: true,
     })
     expect(userRow?.data.emailHash).toEqual(expect.any(String))
+
+    // Serialised on the identity pair, not on the table or the email: two different Google
+    // subjects must not wait for each other, and the same subject arriving twice must.
+    expect(locks).toEqual([
+      {
+        sql: expect.stringContaining('pg_advisory_xact_lock'),
+        params: ['client_auth:oauth:google:google-sub-1'],
+      },
+    ])
 
     expect(mockEmitClientAuthEvent).toHaveBeenCalledWith(
       'client_auth.user.signed_up',
