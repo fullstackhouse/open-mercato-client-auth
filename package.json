@@ -40,7 +40,7 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "test": "vitest run",
+    "test": "vitest run --coverage",
     "test:watch": "vitest",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",
@@ -74,6 +74,7 @@
     "@types/node": "^24.0.0",
     "@types/pg": "^8.20.0",
     "@types/sanitize-html": "^2.16.1",
+    "@vitest/coverage-v8": "^2.1.9",
     "awilix": "^13.0.5",
     "bcryptjs": "^3.0.3",
     "bullmq": "^5.80.2",
