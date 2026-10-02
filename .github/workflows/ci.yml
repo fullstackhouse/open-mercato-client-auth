@@ -57,3 +57,43 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  # The database-backed lane. The store and verifier suites drive hand-written fakes, which the
+  # handbook forbids for the database specifically (12.2), and the migration had no test at all. Its
+  # own job rather than a step in `build`: a server that fails to come up should report itself, not
+  # surface as a mysterious test failure.
+  db:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: client_auth_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 10s
+          --health-timeout 5s --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 24.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # With the URL set, the suite uses this service; without it, it starts its own container via
+      # testcontainers, which is what a developer gets locally with nothing to configure.
+      - name: Test against Postgres
+        run: npm run test:db
+        env:
+          CLIENT_AUTH_TEST_PG_URL: postgres://postgres:postgres@localhost:5432/client_auth_test
+
