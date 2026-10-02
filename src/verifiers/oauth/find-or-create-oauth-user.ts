@@ -18,6 +18,34 @@ export async function findOrCreateOauthUser(params: {
 }): Promise<FindOrCreateOauthUserResult> {
   const { em, identity, tokens } = params
 
+  // Two callbacks for the same identity can arrive at once — a double-clicked consent screen, a
+  // provider retry, a client that fires the exchange twice. Everything below is read-then-write:
+  // both would find no account, both would find no user for the email, and both would create one.
+  // The account table's unique index stops the second ACCOUNT, but core's `users` has no unique
+  // constraint on email, so the duplicate USER survives — and from then on `findUsersByEmail`
+  // returns two rows and this function answers `email-ambiguous` forever. Measured before this
+  // lock existed: 24 of 25 concurrent first sign-ins produced a duplicate user.
+  //
+  // So the identity is serialised rather than the table: an advisory lock keyed on
+  // (provider, providerUserId), held for the enclosing transaction, which makes the whole
+  // find-or-create atomic for that one identity and blocks nothing else. Re-entrant by design —
+  // Postgres grants the same key twice to the same transaction — so a caller already inside a
+  // transaction is unaffected.
+  return em.transactional(async (tem) => {
+    await tem
+      .getConnection()
+      .execute('select pg_advisory_xact_lock(hashtext(?))', [
+        `client_auth:oauth:${identity.provider}:${identity.providerUserId}`,
+      ])
+    return findOrCreateLocked(tem as EntityManager, identity, tokens)
+  })
+}
+
+async function findOrCreateLocked(
+  em: EntityManager,
+  identity: OauthIdentity,
+  tokens: OauthTokenResponse | null,
+): Promise<FindOrCreateOauthUserResult> {
   const account = await em.findOne(OauthAccount, {
     provider: identity.provider,
     providerUserId: identity.providerUserId,
