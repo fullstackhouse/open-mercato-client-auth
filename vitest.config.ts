@@ -39,14 +39,18 @@ export default defineConfig({
       // the rest are for a human running this locally.
       reporter: ['text', 'json', 'json-summary', 'html'],
       include: ['src/**/*.ts'],
-      exclude: ['src/**/*.test.ts', 'src/**/*.db.test.ts', 'src/**/index.ts'],
+      exclude: ['src/**/*.test.ts', 'src/**/*.db.test.ts', 'src/__db__/**', 'src/**/index.ts'],
       // Deliberately NO thresholds. The number is information for a reviewer — which new
       // code arrived untested — not a bar to climb: a floor that must not fall is a standing
       // incentive to write tests that cannot fail, which the handbook forbids (ch. 12.8,
-      // "coverage is not a virtue in itself; information is"). What the uncovered list says
-      // today is that the route handlers, the session user-view and the migration have no
-      // test at all; the fix for those is an integration test against a real app and a real
-      // database (SPEC-028 phase 3), not a unit test written to move this percentage.
+      // "coverage is not a virtue in itself; information is").
+      //
+      // Read it knowing what it cannot see. The route handlers and the migration show 0% here and
+      // are exercised end to end by `npm run test:db` — against a real Postgres, over real
+      // Request/Response objects — which runs in its own project and contributes no line to this
+      // percentage. Measured 2026-10-02: the db lane alone covers 45.32% of statements, almost
+      // none of them the same ones this lane covers. Neither number is the evidence; the lane
+      // list is.
     },
   },
 })

@@ -19,20 +19,27 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { MikroORM, type EntityManager } from '@mikro-orm/postgresql'
 import { Migrator } from '@mikro-orm/migrations'
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql'
+import { createSuiteDatabase, dropSuiteDatabase } from '../../../__db__/suite-database.js'
 import { OauthAccount } from '../data/entities.js'
 import { Migration20260704120000 } from './Migration20260704120000.js'
 
 const MIGRATIONS = [{ name: 'Migration20260704120000', class: Migration20260704120000 }]
 
 let container: StartedPostgreSqlContainer | undefined
+let serverUrl: string
+let suiteUrl: string
 let orm: MikroORM
 
 beforeAll(async () => {
-  let url = process.env.CLIENT_AUTH_TEST_PG_URL
-  if (!url) {
+  serverUrl = process.env.CLIENT_AUTH_TEST_PG_URL ?? ''
+  if (!serverUrl) {
     container = await new PostgreSqlContainer('postgres:17').start()
-    url = container.getConnectionUri()
+    serverUrl = container.getConnectionUri()
   }
+  // This suite's own database on that server: the suites each own their schema, so they must
+  // not share one. See src/__db__/suite-database.ts.
+  suiteUrl = await createSuiteDatabase('client_auth_migration', serverUrl)
+  const url = suiteUrl
   orm = await MikroORM.init({
     clientUrl: url,
     entities: [OauthAccount],
@@ -52,6 +59,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await orm?.close(true)
+  if (suiteUrl && !container) await dropSuiteDatabase(suiteUrl, serverUrl)
   await container?.stop()
 })
 

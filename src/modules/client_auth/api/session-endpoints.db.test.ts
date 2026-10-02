@@ -18,6 +18,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { MikroORM } from '@mikro-orm/postgresql'
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql'
+import { createSuiteDatabase, dropSuiteDatabase } from '../../../__db__/suite-database.js'
 import { getOrm, registerOrmEntities } from '@open-mercato/shared/lib/db/mikro'
 import { registerDiRegistrars } from '@open-mercato/shared/lib/di/container'
 import { bootstrapTest } from '@open-mercato/shared/lib/testing/bootstrap'
@@ -30,6 +31,8 @@ const EMAIL = 'ada@example.test'
 const PASSWORD = 'correct horse battery staple'
 
 let container: StartedPostgreSqlContainer | undefined
+let serverUrl: string
+let suiteUrl: string
 let orm: MikroORM
 
 const CORE = [User, Role, UserRole, UserAcl, RoleAcl, Session, Tenant]
@@ -37,11 +40,15 @@ const CORE = [User, Role, UserRole, UserAcl, RoleAcl, Session, Tenant]
 beforeAll(async () => {
   process.env.JWT_SECRET ??= 'test-jwt-secret-at-least-32-characters-long'
 
-  let url = process.env.CLIENT_AUTH_TEST_PG_URL
-  if (!url) {
+  serverUrl = process.env.CLIENT_AUTH_TEST_PG_URL ?? ''
+  if (!serverUrl) {
     container = await new PostgreSqlContainer('postgres:17').start()
-    url = container.getConnectionUri()
+    serverUrl = container.getConnectionUri()
   }
+  // This suite's own database on that server: the suites each own their schema, so they must
+  // not share one. See src/__db__/suite-database.ts.
+  suiteUrl = await createSuiteDatabase('client_auth_http', serverUrl)
+  const url = suiteUrl
   // The container resolves its own ORM from this, which is how the handlers get an `em`.
   process.env.DATABASE_URL = url
 
@@ -69,6 +76,7 @@ afterAll(async () => {
   // `57P01 terminating connection` objects, and output nobody reads is output nobody checks.
   await (await getOrm().catch(() => null))?.close(true)
   await orm?.close(true)
+  if (suiteUrl && !container) await dropSuiteDatabase(suiteUrl, serverUrl)
   await container?.stop()
 })
 

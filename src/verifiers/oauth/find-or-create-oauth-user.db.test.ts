@@ -18,6 +18,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { MikroORM, type EntityManager } from '@mikro-orm/postgresql'
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql'
+import { createSuiteDatabase, dropSuiteDatabase } from '../../__db__/suite-database.js'
 import { Role, User, UserRole } from '@open-mercato/core/modules/auth/data/entities'
 import { Tenant } from '@open-mercato/core/modules/directory/data/entities'
 import { OauthAccount } from '../../modules/client_auth/data/entities.js'
@@ -43,14 +44,20 @@ const IDENTITY: OauthIdentity = {
 }
 
 let container: StartedPostgreSqlContainer | undefined
+let serverUrl: string
+let suiteUrl: string
 let orm: MikroORM
 
 beforeAll(async () => {
-  let url = process.env.CLIENT_AUTH_TEST_PG_URL
-  if (!url) {
+  serverUrl = process.env.CLIENT_AUTH_TEST_PG_URL ?? ''
+  if (!serverUrl) {
     container = await new PostgreSqlContainer('postgres:17').start()
-    url = container.getConnectionUri()
+    serverUrl = container.getConnectionUri()
   }
+  // This suite's own database on that server: the suites each own their schema, so they must
+  // not share one. See src/__db__/suite-database.ts.
+  suiteUrl = await createSuiteDatabase('client_auth_oauth', serverUrl)
+  const url = suiteUrl
   orm = await MikroORM.init({
     clientUrl: url,
     // The core tables this flow touches, plus ours. Built from entity metadata rather than core's
@@ -67,6 +74,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await orm?.close(true)
+  if (suiteUrl && !container) await dropSuiteDatabase(suiteUrl, serverUrl)
   await container?.stop()
 })
 
